@@ -1,169 +1,177 @@
-# Koda Core — Local AI Assistant
+# Koda Core — AI-ассистент с локальной нейросетью и агентной системой
 
-![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)
-![License](https://img.shields.io/badge/License-Proprietary-red)
-![Version](https://img.shields.io/badge/Version-1.0.0-green)
-![Offline](https://img.shields.io/badge/Offline-100%25-brightgreen)
-![No Tokens](https://img.shields.io/badge/No%20Tokens-Free-brightgreen)
+![Electron](https://img.shields.io/badge/Electron-39.8.10-47848F?style=for-the-badge&logo=electron)
+![React](https://img.shields.io/badge/React-19.2.1-61DAFB?style=for-the-badge&logo=react)
+![Node.js](https://img.shields.io/badge/Node.js-20+-339933?style=for-the-badge&logo=nodedotjs)
+![License](https://img.shields.io/badge/License-Apache%25202.0-blue.svg?style=for-the-badge)
+![Platform](https://img.shields.io/badge/Platform-Windows%2520%257C%2520macOS%2520%257C%2520Linux-lightgrey?style=for-the-badge)
 
-**Your personal AI. Offline. No tokens. Forever.**
+## 🚀 Что это?
+Koda Core — это десктопное приложение на Electron, которое объединяет в себе:
+* **🧠 Локальный AI-ассистент (Qwen 2.5 3B/7B)** — работает полностью офлайн, без API ключей и интернета.
+* **🤖 Агентная система** — несколько AI-агентов, которые выполняют задачи параллельно.
+* **📁 Работа с файлами** — читает PDF, DOCX, XLSX, изображения (OCR), создаёт документы, таблицы, код и архивы.
+* **🌐 Веб-поиск** — через DuckDuckGo (без API ключа).
+* **💾 Полная конфиденциальность** — все данные хранятся локально.
 
-Koda Core is a fully local AI assistant that runs directly on your desktop. No cloud, no subscriptions, no token fees — just instant, private, and powerful AI at your fingertips.
+## ✨ Основные возможности
 
----
+### 🧠 Локальный AI
+* Загружайте модели Qwen 2.5 3B (легкая, быстрая) или 7B (мощная)
+* Полностью офлайн, никаких запросов на серверы
+* Поддержка GPU (CUDA, Metal) и CPU
 
-## ✨ Features
-- **100% Offline** — Works without internet connection
-- **Instant Responses** — No latency, no waiting
-- **Code Generation** — Python, JavaScript, and more
-- **Document Creation** — Generate spreadsheets, reports, and text
-- **Privacy First** — Your data never leaves your device
-- **Full Control** — Dashboard with live metrics and chat interface
-- **No Tokens** — No API keys, no limits, no recurring fees
-- **On-Device** — Runs entirely on your hardware
+### 🤖 Агентная система
+* **Исследователь (Researcher)** — поиск в интернете, анализ информации
+* **Кодер (Coder)** — написание кода на любых языках, создание лендингов
+* **Аналитик (Analyst)** — создание таблиц, анализ данных, экспорт в Excel
+* **Писатель (Writer)** — написание статей, отчетов, новостей
+* **Мастер-агент (Orchestrator)** — координация других агентов, распределение задач
 
----
+### 📁 Файлы
+* **Чтение:** PDF, DOCX, XLSX, CSV, TXT, изображения (OCR)
+* **Создание:** DOCX, XLSX, PDF, ZIP, код (любые языки)
+* **Drag & Drop** — просто перетащите файл в окно приложения
 
-## 🛠 Tech Stack
-- Python
-- Node.js
-- Electron
-- React
-- Docker
+### 💬 Чат
+* Стриминг ответов (печатает по словам)
+* Сохранение истории (чаты не теряются после перезапуска)
+* Поиск по чатам
+* Голосовой ввод (Speech-to-Text)
 
----
+### 🎨 Интерфейс
+* Сворачиваемая панель чатов
+* Адаптивный дизайн
+* Skeleton Loader при загрузке модели
+* Индикатор печати
+* Горячие клавиши (Ctrl+K — поиск, Esc — отмена)
 
-## 📂 Project Structure
+## 🖼️ Скриншоты
+
+![Main](https://screenshots/main.png)
+![Chat](https://screenshots/chat.png)
+![Agents](https://screenshots/agents.png)
+![Settings](https://screenshots/settings.png)
+
+## ⚡ Технологии
+* **Фреймворк:** Electron 39.8, React 19.2
+* **Язык:** JavaScript (ES2022)
+* **Стили:** Tailwind CSS 4, CSS Modules
+* **AI движок:** node-llama-cpp 3.19
+* **Модель:** Qwen 2.5 (3B / 7B) в формате GGUF
+* **Файлы:** pdf-parse, mammoth, xlsx, docx, pdf-lib, adm-zip
+* **OCR:** Tesseract.js
+* **Система:** systeminformation
+
+## 📦 Установка
+
+### Требования
+* Node.js 20+
+* npm 10+
+* Windows 10/11, macOS 12+, или Linux
+* Минимум 8 ГБ ОЗУ (рекомендуется 16 ГБ)
+* Свободное место: ~3 ГБ (модель 3B) или ~6 ГБ (модель 7B)
+
+### Для разработки
+```bash
+# 1. Клонировать репозиторий
+git clone https://github.com/TheMistaKrips/koda-core.git
+cd koda-core
+
+# 2. Скачать модель и положить в папку models/
+# https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF
+# Файл: qwen2.5-3b-instruct-q4_k_m.gguf
+
+# 3. Установить зависимости
+npm install
+
+# 4. Запустить в режиме разработки
+npm run dev
+```
+
+### Сборка приложения
+```bash
+# Windows (EXE установщик)
+npm run build:win
+
+# macOS (DMG образ)
+npm run build:mac
+
+# Linux (AppImage)
+npm run build:linux
+```
+
+## 🧪 Тестирование агентов
+Вот несколько фраз для проверки работы агентов:
+
+| Агент | Пример запроса |
+|---|---|
+| Researcher | "Найди 3 интересных факта о космосе" |
+| Coder | "Напиши код на Python для расчёта факториала" |
+| Analyst | "Сделай таблицу с 5 языками программирования и их особенностями" |
+| Writer | "Напиши статью на тему 'Будущее искусственного интеллекта'" |
+| Orchestrator | "Проанализируй мои расходы: еда 15000, транспорт 5000, развлечения 3000" |
+
+## 📁 Структура проекта
 ```text
 koda-core/
 ├── src/
-│   ├── ai/
-│   ├── api/
-│   └── ui/
+│   ├── main/
+│   │   ├── ai/                     # AI модули
+│   │   │   ├── models.js           # Управление моделями
+│   │   │   ├── generator.js        # Генерация ответов
+│   │   │   ├── prompts.js          # Системные промпты
+│   │   │   ├── router.js           # Роутер (3B/7B)
+│   │   │   ├── agents/             # Агентная система
+│   │   │   │   ├── index.js
+│   │   │   │   ├── orchestrator.js
+│   │   │   │   ├── researcher.js
+│   │   │   │   ├── coder.js
+│   │   │   │   ├── analyst.js
+│   │   │   │   └── writer.js
+│   │   │   ├── knowledge-base.js
+│   │   │   ├── file-processor.js
+│   │   │   ├── code-generator.js
+│   │   │   ├── web-search.js
+│   │   │   ├── ocr.js
+│   │   │   ├── export-excel.js
+│   │   │   └── utils.js
+│   │   └── index.js
+│   ├── preload/
+│   │   └── index.js
+│   └── renderer/
+│       ├── components/
+│       │   ├── ChatPanel.jsx
+│       │   ├── AgentsPanel.jsx
+│       │   ├── SystemMonitor.jsx
+│       │   └── TitleBar.jsx
+│       ├── App.jsx
+│       ├── index.css
+│       └── main.jsx
 ├── models/
-├── data/
-├── tests/
-├── docs/
-├── assets/
-├── .gitignore
-├── README.md
-├── requirements.txt
-└── package.json
+│   └── qwen2.5-3b-instruct-q4_k_m.gguf
+├── resources/
+│   ├── koda.ico
+│   └── koda.icns
+├── package.json
+└── README.md
 ```
 
----
+## 🤝 Лицензия
+Этот проект распространяется под лицензией **Apache License 2.0**. Это значит, что вы можете:
+* ✅ Использовать в коммерческих целях
+* ✅ Изменять и адаптировать
+* ✅ Распространять
 
-## 🚀 Quick Start
+*С условием указания авторства.*
 
-### Prerequisites
-- **Python 3.9** or higher
-- **Node.js 16** or higher (if using desktop app)
-- **Docker** (optional)
+## 🧑‍💻 Авторы
+**Фетисов Герман** — создатель и разработчик
 
-### Installation
+## 📧 Контакты
+* **GitHub:** [@TheMistaKrips](https://github.com/TheMistaKrips)
+* **Email:** [fetisovdev0@gmail.com](mailto:fetisovdev0@gmail.com)
+* **Telegram:** @your-telegram *(нужно вписать вручную)*
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/TheMistaKrips/koda-core.git
-   cd koda-core
-   ```
-
-2. **Install Python dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **For desktop app (optional):**
-   ```bash
-   npm install
-   npm start
-   ```
-
-4. **Or run as a web service:**
-   ```bash
-   python main.py
-   ```
-
----
-
-## ⚙️ Configuration
-Create a `.env` file in the root directory:
-
-```env
-MODEL_PATH=./models/your_model
-DEVICE=cpu
-LOG_LEVEL=info
-PORT=8080
-```
-
----
-
-## 💡 Usage
-
-### Basic Commands
-- **Chat mode** — Interact with Koda via the chat interface
-- **Code generation** — Ask Koda to write code in any language
-- **Document creation** — Generate spreadsheets, reports, and more
-
-### Examples
-- **Generate Python code:**
-  > "Koda: Write a function to sort a list"
-- **Generate a spreadsheet:**
-  > "Koda: Create a monthly budget table"
-- **Ask a question:**
-  > "Koda: Explain quantum computing in simple terms"
-
----
-
-## 🐳 Deployment
-For production deployment using Docker:
-
-```bash
-docker build -t koda-core .
-docker run -p 8080:8080 koda-core
-```
-
----
-
-## 🤝 Contributing
-Contributions are welcome! Please follow these steps:
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
-
----
-
-## 🗺 Roadmap
-- [x] Core AI engine (completed)
-- [x] Chat interface (completed)
-- [x] Code generation (completed)
-- [x] Offline support (completed)
-- [ ] Multi-model support (planned)
-- [ ] Plugin system (planned)
-- [ ] Mobile app (planned)
-- [ ] Voice input (planned)
-
----
-
-## 📄 License
-**This project is proprietary software.**  
-© 2026 German Fetisov. All rights reserved.
-
-Unauthorized copying, modification, distribution, or use of this software is strictly prohibited without prior written permission from the author.
-
----
-
-## ⚖️ Disclaimer
-THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
----
-
-## 📫 Contact
-- **Developer:** German Fetisov
-- **Email:** [fetisovdev0@gmail.com](mailto:fetisovdev0@gmail.com)
-- **GitHub:** [https://github.com/TheMistaKrips](https://github.com/TheMistaKrips)
-
----
-*Made with ❤️ by German Fetisov*
+## ⭐ Понравился проект?
+Поставь ⭐ на GitHub, чтобы поддержать разработку!

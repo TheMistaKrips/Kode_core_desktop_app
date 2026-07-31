@@ -46,13 +46,6 @@ Koda Core — это десктопное приложение на Electron, к
 * Индикатор печати
 * Горячие клавиши (Ctrl+K — поиск, Esc — отмена)
 
-## 🖼️ Скриншоты
-
-![Main](https://screenshots/main.png)
-![Chat](https://screenshots/chat.png)
-![Agents](https://screenshots/agents.png)
-![Settings](https://screenshots/settings.png)
-
 ## ⚡ Технологии
 * **Фреймворк:** Electron 39.8, React 19.2
 * **Язык:** JavaScript (ES2022)

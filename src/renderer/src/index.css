@@ -1,0 +1,292 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap');
+@import "tailwindcss";
+
+:root {
+    --color-black: #111111;
+    --color-white: #FFFFFF;
+    --color-input: #DFE0DF;
+    --radius-main: 40px;
+}
+
+html,
+body,
+#root {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background-color: var(--color-black);
+    color: var(--color-black);
+    font-family: 'Montserrat', sans-serif;
+    user-select: none;
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+    padding: 0;
+}
+
+/* ============================================================
+   ТЕКСТ МОЖНО ВЫДЕЛЯТЬ
+   ============================================================ */
+.selectable-text {
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
+}
+
+.selectable-text * {
+    user-select: text;
+    -webkit-user-select: text;
+}
+
+/* ============================================================
+   РАЗМЕРЫ ШРИФТОВ (УМЕНЬШЕНЫ)
+   ============================================================ */
+.text-nav {
+    font-size: 11px;
+    font-weight: 400;
+}
+
+.text-small {
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.text-default {
+    font-size: 16px;
+    font-weight: 400;
+}
+
+.text-large {
+    font-size: 32px;
+    font-weight: 700;
+}
+
+/* ============================================================
+   ЗАГОЛОВОК
+   ============================================================ */
+.titlebar-drag {
+    -webkit-app-region: drag;
+}
+
+.titlebar-nodrag {
+    -webkit-app-region: no-drag;
+}
+
+/* ============================================================
+   УБИРАЕМ OUTLINE
+   ============================================================ */
+input:focus,
+button:focus {
+    outline: none;
+}
+
+/* ============================================================
+   СКРОЛЛБАРЫ
+   ============================================================ */
+::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 0px;
+}
+
+.hidden-scroll {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* ============================================================
+   АНИМАЦИЯ СПИДОМЕТРА
+   ============================================================ */
+.gauge-needle {
+    transform-origin: bottom center;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================================
+   ПЕРЕНЕСЕНИЕ СЛОВ
+   ============================================================ */
+.break-words {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+/* ============================================================
+   МАКСИМАЛЬНАЯ ШИРИНА ДЛЯ БЛОКОВ ЧАТА
+   ============================================================ */
+.max-w-\[85\%\] {
+    max-width: 85%;
+}
+
+/* ============================================================
+   ПЛАВНАЯ АНИМАЦИЯ
+   ============================================================ */
+.message-enter {
+    animation: fadeInUp 0.3s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================================
+   ДЛЯ КОДА В ЧАТЕ
+   ============================================================ */
+pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* ============================================================
+   SKELETON LOADER
+   ============================================================ */
+@keyframes shimmer {
+    0% {
+        background-position: -200px 0;
+    }
+
+    100% {
+        background-position: calc(200px + 100%) 0;
+    }
+}
+
+.skeleton {
+    background: #e0e0e0;
+    background: linear-gradient(90deg, #e0e0e0 25%, #f0f0f0 50%, #e0e0e0 75%);
+    background-size: 200px 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 12px;
+}
+
+.skeleton-text {
+    height: 14px;
+    margin-bottom: 6px;
+    border-radius: 6px;
+}
+
+.skeleton-text-sm {
+    height: 10px;
+    width: 60%;
+    border-radius: 4px;
+}
+
+.skeleton-text-lg {
+    height: 20px;
+    width: 80%;
+    border-radius: 8px;
+}
+
+.skeleton-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+.skeleton-card {
+    padding: 16px;
+    background: #f5f5f5;
+    border-radius: 12px;
+    border: 1px solid #e8e8e8;
+}
+
+/* ============================================================
+   ИНДИКАТОР ПЕЧАТИ
+   ============================================================ */
+@keyframes typing-dot {
+
+    0%,
+    60%,
+    100% {
+        transform: translateY(0);
+        opacity: 0.3;
+    }
+
+    30% {
+        transform: translateY(-8px);
+        opacity: 1;
+    }
+}
+
+.typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+}
+
+.typing-indicator .dot {
+    width: 6px;
+    height: 6px;
+    background: var(--color-black);
+    border-radius: 50%;
+    animation: typing-dot 1.4s infinite ease-in-out;
+}
+
+.typing-indicator .dot:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.typing-indicator .dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator .dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+/* ============================================================
+   ПРОГРЕСС-БАР ЗАГРУЗКИ
+   ============================================================ */
+.progress-bar {
+    width: 100%;
+    height: 3px;
+    background: var(--color-input);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar .fill {
+    height: 100%;
+    background: var(--color-black);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.progress-bar .fill.indeterminate {
+    animation: indeterminate 1.5s infinite ease-in-out;
+}
+
+@keyframes indeterminate {
+    0% {
+        width: 0%;
+        left: 0%;
+    }
+
+    50% {
+        width: 60%;
+        left: 20%;
+    }
+
+    100% {
+        width: 0%;
+        left: 100%;
+    }
+}

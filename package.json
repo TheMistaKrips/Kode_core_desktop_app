@@ -1,0 +1,117 @@
+{
+  "name": "koda-core",
+  "version": "1.0.0",
+  "description": "Koda Core - AI Assistant",
+  "main": "./out/main/index.js",
+  "author": "Fetisov German",
+  "scripts": {
+    "format": "prettier --write .",
+    "lint": "eslint --cache .",
+    "start": "electron-vite preview",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "postinstall": "electron-builder install-app-deps",
+    "build:unpack": "npm run build && electron-builder --dir",
+    "build:win": "npm run build && electron-builder --win",
+    "build:mac": "npm run build && electron-builder --mac",
+    "build:linux": "npm run build && electron-builder --linux"
+  },
+  "dependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "adm-zip": "^0.5.18",
+    "archiver": "^6.0.2",
+    "clsx": "^2.1.1",
+    "docx": "^8.5.0",
+    "framer-motion": "^12.42.2",
+    "lottie-react": "^2.4.1",
+    "lucide-react": "^1.23.0",
+    "mammoth": "^1.12.0",
+    "node-llama-cpp": "^3.19.0",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^2.4.5",
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^16.1.1",
+    "remark-gfm": "^4.0.1",
+    "systeminformation": "^5.31.12",
+    "tailwind-merge": "^3.6.0",
+    "tesseract.js": "^5.1.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@electron-toolkit/eslint-config": "^2.1.0",
+    "@electron-toolkit/eslint-config-prettier": "^3.0.0",
+    "@tailwindcss/postcss": "^4.3.2",
+    "@vitejs/plugin-react": "^5.1.1",
+    "autoprefixer": "^10.5.2",
+    "electron": "^39.2.6",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^5.0.0",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "postcss": "^8.5.16",
+    "prettier": "^3.7.4",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "tailwindcss": "^4.3.2",
+    "vite": "^7.2.6"
+  },
+  "build": {
+    "appId": "com.koda.core",
+    "productName": "Koda Core",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "models",
+        "to": "models",
+        "filter": [
+          "**/*.gguf"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "resources/spark.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Koda Core"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "resources/spark.icns",
+      "category": "public.app-category.productivity"
+    },
+    "dmg": {
+      "title": "Koda Core",
+      "icon": "resources/spark.icns",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
+  }
+}

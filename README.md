@@ -63,12 +63,6 @@ python main.py
 <img src="https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB">
 <img src="https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white">
 
-- Python
-- Node.js
-- Electron
-- React
-- Docker
-
 Local inference engine
 Lightweight architecture
 Cross-platform support

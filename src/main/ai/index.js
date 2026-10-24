@@ -6,6 +6,7 @@
 export { 
   initAI, 
   generateChatResponse, 
+  generateRawResponse, 
   generateChatTitle, 
   abortGeneration, 
   resetChatSession 
@@ -30,17 +31,6 @@ export {
   needsComplexModel,
   getRouteReason
 } from './router.js'
-
-// 🔥 СТРИМИНГ
-export { 
-  startStream, 
-  sendToken, 
-  stopStream, 
-  isStreamActive, 
-  getStreamTokenCount,
-  cleanupStreams,
-  getStreamStats
-} from './streaming.js'
 
 // 🔥 УПРАВЛЕНИЕ ЧАТАМИ (СОХРАНЕНИЕ)
 export { 
@@ -150,7 +140,7 @@ export {
 // ============================================================
 
 export const VERSION = '1.0.0';
-export const MODULE_NAME = 'Spark AI Core';
+export const MODULE_NAME = 'Prismi AI Core';
 
 // ============================================================
 // ИНФОРМАЦИЯ О МОДУЛЕ

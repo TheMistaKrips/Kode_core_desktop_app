@@ -3,7 +3,7 @@
 // ============================================================
 
 import { BaseAgent } from './base-agent.js'
-import { createAgent, runAgentTask, getAgent } from './agent-manager.js'
+import { createAgent, runAgentTask, deleteAgent } from './agent-manager.js'
 
 export class OrchestratorAgent extends BaseAgent {
   constructor(config = {}) {
@@ -27,9 +27,9 @@ export class OrchestratorAgent extends BaseAgent {
     const analysis = await this._analyzeTask(task)
     console.log(`[ORCHESTRATOR] Анализ:`, analysis)
 
-    // 2. Создаём подзадачи
-    const subTasks = this._createSubTasks(task, analysis)
-    console.log(`[ORCHESTRATOR] Создано ${subTasks.length} подзадач`)
+    // 2. Создаём и упорядочиваем подзадачи по важности/зависимостям
+    const subTasks = this._orderTasks(this._createSubTasks(task, analysis))
+    console.log(`[ORCHESTRATOR] Упорядочено ${subTasks.length} подзадач`)
 
     // 3. Распределяем между агентами
     const results = await this._distributeTasks(subTasks)
@@ -48,35 +48,45 @@ export class OrchestratorAgent extends BaseAgent {
 
   async _analyzeTask(task) {
     // 🔥 ИСПОЛЬЗУЕМ AI ДЛЯ АНАЛИЗА
-    const { generateChatResponse } = await import('../generator.js')
+    const { generateRawResponse } = await import('../generator.js')
     
     const analysisPrompt = `
-    Проанализируй задачу и определи:
-    1. Тип задачи (research, code, analysis, writing)
-    2. Какие подзадачи нужны
-    3. Какие агенты нужны для выполнения
+    Разбей задачу на подзадачи и определи для каждой важность и зависимости.
 
     Задача: "${task}"
 
-    Ответь в формате JSON:
+    Верни ТОЛЬКО JSON (без пояснений и без markdown-обёртки) в формате:
     {
       "type": "research|code|analysis|writing|mixed",
       "subTasks": [
         {
           "id": "1",
-          "description": "...",
+          "description": "что сделать",
           "agentType": "researcher|coder|analyst|writer",
+          "priority": 10,
           "dependsOn": []
         }
       ]
     }
+
+    Правила:
+    - priority: число от 1 до 10, где 10 — самое важное/срочное.
+    - dependsOn: массив id подзадач, которые должны выполниться раньше этой.
+    - Располагай подзадачи по убыванию важности.
+    - Если задача простая — верни ровно одну подзадачу.
     `
 
-    const response = await generateChatResponse(analysisPrompt, [], 'System', 'Spark', 'orchestrator', [], false)
+    const response = await generateRawResponse(analysisPrompt, [], 'System', 'Prismi', 'orchestrator', [], false)
     try {
-      const parsed = JSON.parse(response)
-      return parsed
+      const cleaned = response.replace(/```json|```/g, '').trim()
+      return JSON.parse(cleaned)
     } catch {
+      const match = response.match(/\{[\s\S]*\}/)
+      if (match) {
+        try {
+          return JSON.parse(match[0])
+        } catch {}
+      }
       // Фолбэк — если AI не вернул JSON
       return {
         type: 'mixed',
@@ -85,6 +95,7 @@ export class OrchestratorAgent extends BaseAgent {
             id: '1',
             description: task,
             agentType: this._detectAgentType(task),
+            priority: 10,
             dependsOn: []
           }
         ]
@@ -124,9 +135,53 @@ export class OrchestratorAgent extends BaseAgent {
         id: '1',
         description: task,
         agentType: this._detectAgentType(task),
+        priority: 10,
         dependsOn: []
       }
     ]
+  }
+
+  // ============================================================
+  // УПОРЯДОЧИВАНИЕ ПОДЗАДАЧ ПО ВАЖНОСТИ И ЗАВИСИМОСТЯМ
+  // ============================================================
+
+  _orderTasks(subTasks) {
+    if (!subTasks || subTasks.length === 0) return []
+
+    const byId = new Map(subTasks.map((t) => [String(t.id), t]))
+    const done = new Set()
+    const ordered = []
+
+    while (ordered.length < subTasks.length) {
+      let best = null
+
+      for (const t of subTasks) {
+        if (done.has(String(t.id))) continue
+        const deps = (t.dependsOn || []).map((d) => String(d))
+        // Задача доступна, только если все её зависимости уже выполнены
+        if (deps.every((d) => done.has(d))) {
+          if (!best || (Number(t.priority) || 1) > (Number(best.priority) || 1)) {
+            best = t
+          }
+        }
+      }
+
+      if (!best) {
+        // Циклическая или потерянная зависимость — добавляем оставшиеся как есть
+        for (const t of subTasks) {
+          if (!done.has(String(t.id))) {
+            ordered.push(t)
+            done.add(String(t.id))
+          }
+        }
+        break
+      }
+
+      ordered.push(best)
+      done.add(String(best.id))
+    }
+
+    return ordered
   }
 
   // ============================================================
@@ -135,10 +190,11 @@ export class OrchestratorAgent extends BaseAgent {
 
   async _distributeTasks(subTasks) {
     const results = []
+    const createdAgentIds = []
 
     for (const subTask of subTasks) {
       try {
-        // Создаём агента для задачи
+        // Создаём временного агента для подзадачи
         const agent = createAgent({
           type: subTask.agentType,
           name: `${subTask.agentType}-${subTask.id}`
@@ -147,27 +203,38 @@ export class OrchestratorAgent extends BaseAgent {
         if (!agent) {
           results.push({
             id: subTask.id,
+            priority: Number(subTask.priority) || 1,
             success: false,
             error: `Не удалось создать агента типа ${subTask.agentType}`
           })
           continue
         }
 
+        createdAgentIds.push(agent.id)
+
         // Выполняем задачу
         const result = await runAgentTask(agent.id, subTask.description)
         results.push({
           id: subTask.id,
+          priority: Number(subTask.priority) || 1,
           success: true,
           result: result
         })
-
       } catch (error) {
         results.push({
           id: subTask.id,
+          priority: Number(subTask.priority) || 1,
           success: false,
           error: error.message
         })
       }
+    }
+
+    // 🔥 Убираем временных субагентов, чтобы не копились в базе
+    for (const id of createdAgentIds) {
+      try {
+        deleteAgent(id)
+      } catch {}
     }
 
     return results
@@ -178,8 +245,8 @@ export class OrchestratorAgent extends BaseAgent {
   // ============================================================
 
   async _aggregateResults(results, originalTask) {
-    const successful = results.filter(r => r.success)
-    const failed = results.filter(r => !r.success)
+    const successful = results.filter((r) => r.success)
+    const failed = results.filter((r) => !r.success)
 
     // Если всё упало — возвращаем ошибку
     if (successful.length === 0) {
@@ -190,16 +257,15 @@ export class OrchestratorAgent extends BaseAgent {
       }
     }
 
-    // Собираем результаты
-    const aggregated = {
+    // Собираем результаты с планом выполнения (по приоритету)
+    return {
       success: true,
       task: originalTask,
-      results: successful.map(r => r.result),
-      errors: failed.map(r => r.error),
+      plan: results.map((r) => ({ id: r.id, priority: r.priority, done: r.success })),
+      results: successful.map((r) => r.result),
+      errors: failed.map((r) => ({ id: r.id, error: r.error })),
       summary: `Выполнено ${successful.length} из ${results.length} подзадач`
     }
-
-    return aggregated
   }
 
   // ============================================================

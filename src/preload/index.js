@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 const api = {
@@ -7,10 +7,9 @@ const api = {
   
   // Файлы
   selectFiles: () => ipcRenderer.invoke('select-files'),
+  getPathForFile: (file) => webUtils.getPathForFile(file),
   createFile: (fileName, base64Content) => 
     ipcRenderer.invoke('create-file', fileName, base64Content),
-  createMultipleFiles: (files) => 
-    ipcRenderer.invoke('create-multiple-files', files),
   
   // Чат
   sendChatMessage: (prompt, files, userName, aiName, chatId, chatHistory, webSearchEnabled) => 
@@ -54,6 +53,10 @@ const api = {
   // Модели
   unloadModel: () => 
     ipcRenderer.invoke('unload-model'),
+  preloadModel: (modelType) => 
+    ipcRenderer.invoke('preload-model', modelType),
+  reloadModel: (modelType) => 
+    ipcRenderer.invoke('reload-model', modelType),
   isModelReady: () => 
     ipcRenderer.invoke('is-model-ready'),
   getCurrentModelType: () => 

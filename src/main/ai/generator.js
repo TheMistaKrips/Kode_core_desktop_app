@@ -1,5 +1,5 @@
-import { 
-  ensureModelLoaded, 
+import {
+  ensureModelLoaded,
   getLoadedModel,
   getLlamaChatSessionClass,
   getOptimalThreads
@@ -37,7 +37,7 @@ function decodeTokenWithModel(token, modelInstance) {
       }
       return '';
     }
-    
+
     if (Array.isArray(token)) {
       let text = '';
       for (const t of token) {
@@ -45,11 +45,11 @@ function decodeTokenWithModel(token, modelInstance) {
       }
       return text;
     }
-    
+
     if (typeof token === 'string') {
       return token;
     }
-    
+
     return '';
   } catch (e) {
     console.log('[DECODE] ошибка detokenize:', e.message);
@@ -58,103 +58,106 @@ function decodeTokenWithModel(token, modelInstance) {
 }
 
 // ============================================================
-// ГЕНЕРАЦИЯ ОТВЕТА
+// ЯДРО: выполнение запроса и возврат сырого текста
 // ============================================================
 
-export async function generateChatResponse(
+async function runCompletion(
   prompt,
-  files = [],
-  userName = "User",
-  aiName = "Spark",
-  chatId = "default",
-  chatHistory = [],
-  webSearchEnabled = false,
-  onToken = null
+  files,
+  userName,
+  aiName,
+  chatId,
+  chatHistory,
+  webSearchEnabled,
+  onToken
 ) {
-  const totalStart = Date.now();
-  
-  try {
-    console.log('[GENERATE] === НАЧАЛО ГЕНЕРАЦИИ ===');
-    
-    const modelType = routeRequest(prompt);
-    console.log('[GENERATE] модель:', modelType);
+  const modelType = routeRequest(prompt);
+  console.log('[GENERATE] модель:', modelType);
 
-    const loadStart = Date.now();
-    await ensureModelLoaded(modelType);
-    console.log('[GENERATE] загрузка модели:', ((Date.now() - loadStart) / 1000).toFixed(1), 'сек');
+  await ensureModelLoaded(modelType);
 
-    const loadedModel = getLoadedModel();
-    const LlamaChatSessionClass = getLlamaChatSessionClass();
-    const threads = getOptimalThreads();
+  const loadedModel = getLoadedModel();
+  const LlamaChatSessionClass = getLlamaChatSessionClass();
+  const threads = getOptimalThreads();
 
-    if (!loadedModel) {
-      throw new Error('Модель не загружена');
-    }
+  if (!loadedModel) {
+    throw new Error('Модель не загружена');
+  }
 
-    const context = await loadedModel.createContext({
-      threads: threads,
-      batchSize: 512,
-      contextSize: 16384
-    });
+  const context = await loadedModel.createContext({
+    threads: threads,
+    batchSize: 512,
+    contextSize: 16384
+  });
 
-    let systemPrompt = getSystemPrompt(aiName);
+  let systemPrompt = getSystemPrompt(aiName);
 
-    let webResults = [];
-    if (webSearchEnabled) {
-      const searchStart = Date.now();
-      webResults = await webSearch(prompt);
-      console.log('[GENERATE] веб-поиск:', webResults.length, 'результатов за', ((Date.now() - searchStart) / 1000).toFixed(1), 'сек');
-      
-      if (webResults.length > 0) {
-        systemPrompt += "\n\nАКТУАЛЬНАЯ ИНФОРМАЦИЯ ИЗ ИНТЕРНЕТА:\n";
-        webResults.slice(0, 5).forEach((result, i) => {
-          systemPrompt += `\n${i+1}. ${result.title}\n${result.snippet}\nИсточник: ${result.url}\n`;
-        });
-        systemPrompt += "\nИспользуй эту информацию для ответа. Если информация противоречит твоим знаниям, используй данные из интернета как более актуальные.\n";
-      }
-    }
-
-    if (chatHistory && chatHistory.length > 0) {
-      const relevantHistory = chatHistory.slice(-30);
-      systemPrompt += "\n\nИСТОРИЯ ДИАЛОГА:\n";
-      relevantHistory.forEach(msg => {
-        const role = msg.role === 'user' ? userName : aiName;
-        systemPrompt += `${role}: ${msg.text}\n`;
+  let webResults = [];
+  if (webSearchEnabled) {
+    webResults = await webSearch(prompt);
+    if (webResults.length > 0) {
+      systemPrompt += '\n\nАКТУАЛЬНАЯ ИНФОРМАЦИЯ ИЗ ИНТЕРНЕТА:\n';
+      webResults.slice(0, 5).forEach((result, i) => {
+        systemPrompt += `\n${i + 1}. ${result.title}\n${result.snippet}\nИсточник: ${result.url}\n`;
       });
-      systemPrompt += "\n--- КОНЕЦ ИСТОРИИ ---\n";
+      systemPrompt += '\nИспользуй эту информацию для ответа. Если информация противоречит твоим знаниям, используй данные из интернета как более актуальные.\n';
     }
+  }
 
-    const session = new LlamaChatSessionClass({
-      contextSequence: context.getSequence(),
-      systemPrompt: systemPrompt
+  if (chatHistory && chatHistory.length > 0) {
+    const relevantHistory = chatHistory.slice(-20);
+    systemPrompt += '\n\nИСТОРИЯ ДИАЛОГА:\n';
+    relevantHistory.forEach((msg) => {
+      const role = msg.role === 'user' ? userName : aiName;
+      const snippet = (msg.text || '').substring(0, 400);
+      systemPrompt += `${role}: ${snippet}\n`;
+    });
+    systemPrompt += '\n--- КОНЕЦ ИСТОРИИ ---\n';
+  }
+
+  const session = new LlamaChatSessionClass({
+    contextSequence: context.getSequence(),
+    systemPrompt: systemPrompt
+  });
+
+  let userMessage = '';
+
+  if (files && files.length > 0) {
+    userMessage += 'Файлы:\n\n';
+    const fileContents = await Promise.all(
+      files.map(async (file) => {
+        const content = await parseFileContent(file.path);
+        return { name: file.name, content };
+      })
+    );
+
+    // 🔥 Бюджет контекста: не даём файлам переполнить окно модели (16K токенов)
+    const MAX_TOTAL_FILE_CHARS = 10000;
+    const perFile = Math.max(800, Math.floor(MAX_TOTAL_FILE_CHARS / Math.max(fileContents.length, 1)));
+    let remaining = MAX_TOTAL_FILE_CHARS;
+
+    const budgeted = fileContents.map(({ name, content }) => {
+      const cap = Math.max(0, Math.min(perFile, remaining));
+      let snippet = content;
+      if (snippet.length > cap) {
+        snippet = snippet.substring(0, cap) + '\n...[обрезано]';
+      }
+      remaining = Math.max(0, remaining - snippet.length);
+      return `--- ${name} ---\n${snippet}\n`;
     });
 
-    let userMessage = "";
+    userMessage += budgeted.join('\n');
+    userMessage += '\nВыполни запрос на основе всех файлов. Если файлов несколько — обработай каждый, а при необходимости сведи данные в таблицу (markdown).\n\n';
+  }
 
-    if (files && files.length > 0) {
-      userMessage += "Файлы:\n\n";
-      const fileStart = Date.now();
-      const fileContents = await Promise.all(
-        files.map(async (file) => {
-          const content = await parseFileContent(file.path);
-          return `--- ${file.name} ---\n${content}\n`;
-        })
-      );
-      userMessage += fileContents.join('\n');
-      userMessage += "\nВыполни запрос на основе файлов.\n\n";
-      console.log('[GENERATE] файлы:', files.length, 'за', ((Date.now() - fileStart) / 1000).toFixed(1), 'сек');
-    }
+  userMessage += `${userName}: ${prompt}`;
 
-    userMessage += `${userName}: ${prompt}`;
+  currentAbortController = new AbortController();
+  currentOnToken = onToken;
 
-    currentAbortController = new AbortController();
-    currentOnToken = onToken;
+  let fullResponse = '';
 
-    const genStart = Date.now();
-    console.log('[GENERATE] началась генерация...');
-
-    let fullResponse = '';
-
+  try {
     const response = await session.prompt(userMessage, {
       signal: currentAbortController.signal,
       maxTokens: 4096,
@@ -168,42 +171,25 @@ export async function generateChatResponse(
         }
       }
     });
-    
-    currentAbortController = null;
-    currentOnToken = null;
-    console.log('[GENERATE] генерация завершена за', ((Date.now() - genStart) / 1000).toFixed(1), 'сек');
-
-    try {
-      await context.dispose();
-    } catch (e) {
-      console.log('[GENERATE] ошибка очистки контекста:', e.message);
-    }
 
     let responseText = fullResponse || '';
-    
-    console.log('[GENERATE] fullResponse длина:', fullResponse.length);
-    
+
     if (!responseText) {
       try {
         if (Buffer.isBuffer(response)) {
           responseText = response.toString('utf-8');
-          console.log('[GENERATE] декодировано из Buffer');
         } else if (response instanceof Uint8Array) {
           responseText = new TextDecoder('utf-8').decode(response);
-          console.log('[GENERATE] декодировано из Uint8Array');
         } else if (typeof response === 'string') {
           responseText = response;
-          console.log('[GENERATE] это строка');
         } else if (Array.isArray(response)) {
           let text = '';
           for (const t of response) {
             text += decodeTokenWithModel(t, loadedModel);
           }
           responseText = text;
-          console.log('[GENERATE] декодировано из массива через модель');
         } else {
           responseText = decodeResponse(response);
-          console.log('[GENERATE] декодировано через decodeResponse');
         }
       } catch (e) {
         console.log('[GENERATE] ошибка декодирования:', e.message);
@@ -211,41 +197,102 @@ export async function generateChatResponse(
       }
     }
 
-    console.log('[GENERATE] финальный текст, длина:', responseText.length);
-    console.log('[GENERATE] финальный текст (первые 100 символов):', responseText.substring(0, 100));
+    return { responseText, webResults, modelType };
+  } finally {
+    currentAbortController = null;
+    currentOnToken = null;
+    try {
+      await context.dispose();
+    } catch (e) {
+      console.log('[GENERATE] ошибка очистки контекста:', e.message);
+    }
+  }
+}
 
-    const { files: generatedFiles, cleanText, tableData } = parseAIResponse(responseText);
+// ============================================================
+// ГЕНЕРАЦИЯ ОТВЕТА (структурированный объект для чата)
+// ============================================================
+
+export async function generateChatResponse(
+  prompt,
+  files = [],
+  userName = 'User',
+  aiName = 'Prismi',
+  chatId = 'default',
+  chatHistory = [],
+  webSearchEnabled = false,
+  onToken = null
+) {
+  const totalStart = Date.now();
+
+  try {
+    console.log('[GENERATE] === НАЧАЛО ГЕНЕРАЦИИ ===');
+
+    const { responseText, webResults, modelType } = await runCompletion(
+      prompt,
+      files,
+      userName,
+      aiName,
+      chatId,
+      chatHistory,
+      webSearchEnabled,
+      onToken
+    );
+
+    const { files: generatedFiles, cleanText, tableData } = await parseAIResponse(responseText);
 
     const totalTime = ((Date.now() - totalStart) / 1000).toFixed(1);
     console.log('[GENERATE] === ЗАВЕРШЕНО ЗА', totalTime, 'сек ===');
 
-    return JSON.stringify({
+    return {
       text: cleanText || responseText || 'Ответ не получен',
       files: generatedFiles,
       tableData: tableData,
       webResults: webResults,
       modelUsed: modelType
-    });
-
+    };
   } catch (error) {
     console.log('[GENERATE] === ОШИБКА ===');
     console.error('[GENERATE]', error);
-    
-    currentAbortController = null;
-    currentOnToken = null;
-    
+
     if (error.name === 'AbortError' || error.message?.includes('abort')) {
-      console.log('[GENERATE] генерация отменена пользователем');
       throw new Error('AbortError');
     }
-    
-    return JSON.stringify({
-      text: "Ошибка при генерации. Попробуйте еще раз.",
+
+    return {
+      text: 'Ошибка при генерации. Попробуйте еще раз.',
       files: [],
       tableData: null,
       webResults: []
-    });
+    };
   }
+}
+
+// ============================================================
+// ГЕНЕРАЦИЯ СЫРОГО ТЕКСТА (для внутренних агентов)
+// ============================================================
+
+export async function generateRawResponse(
+  prompt,
+  files = [],
+  userName = 'System',
+  aiName = 'Prismi',
+  chatId = 'default',
+  chatHistory = [],
+  webSearchEnabled = false,
+  onToken = null
+) {
+  const { responseText } = await runCompletion(
+    prompt,
+    files,
+    userName,
+    aiName,
+    chatId,
+    chatHistory,
+    webSearchEnabled,
+    onToken
+  );
+  return responseText;
 }
 
 // ============================================================
@@ -255,14 +302,14 @@ export async function generateChatResponse(
 export async function generateChatTitle(prompt) {
   try {
     console.log('[TITLE] генерация заголовка для:', prompt.substring(0, 50));
-    
+
     await ensureModelLoaded('3b');
     const loadedModel = getLoadedModel();
     const LlamaChatSessionClass = getLlamaChatSessionClass();
     const threads = getOptimalThreads();
 
     if (!loadedModel) {
-      return "Новый диалог";
+      return 'Новый диалог';
     }
 
     const context = await loadedModel.createContext({
@@ -273,11 +320,11 @@ export async function generateChatTitle(prompt) {
 
     const tempSession = new LlamaChatSessionClass({
       contextSequence: context.getSequence(),
-      systemPrompt: "Создай краткий заголовок (максимум 5 слов). Ответь только заголовком."
+      systemPrompt: 'Создай краткий заголовок (максимум 5 слов). Ответь только заголовком.'
     });
 
     const response = await tempSession.prompt(`Заголовок для: "${prompt}"`);
-    
+
     try {
       await context.dispose();
     } catch (e) {}
@@ -293,11 +340,10 @@ export async function generateChatTitle(prompt) {
       title = String(response);
     }
 
-    console.log('[TITLE] заголовок:', title);
     return title.trim().replace(/["']/g, '').substring(0, 50);
   } catch (error) {
     console.error('[TITLE] ошибка:', error);
-    return "Новый диалог";
+    return 'Новый диалог';
   }
 }
 

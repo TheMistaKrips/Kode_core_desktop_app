@@ -13,6 +13,7 @@ const AGENTS_FILE = path.join(app.getPath('userData'), 'agents.json')
 // ИМПОРТ АГЕНТОВ
 // ============================================================
 
+import { BaseAgent } from './base-agent.js'
 import { ResearcherAgent } from './researcher-agent.js'
 import { CoderAgent } from './coder-agent.js'
 import { AnalystAgent } from './analyst-agent.js'

@@ -77,16 +77,12 @@ export default function SystemMonitor({ expanded = false, setCurrentView }) {
   const handleReloadModel = async () => {
     setIsReloading(true);
     try {
-      if (window.api && window.api.unloadModel) {
-        await window.api.unloadModel();
-        // Ждём 2 секунды и загружаем заново
-        setTimeout(async () => {
-          if (window.api && window.api.preloadModel) {
-            await window.api.preloadModel('3b');
-          }
-          setIsReloading(false);
-          alert('Модель перезагружена');
-        }, 2000);
+      const result = await window.api?.reloadModel('3b');
+      setIsReloading(false);
+      if (result?.success) {
+        alert('Модель перезагружена');
+      } else {
+        alert('Ошибка перезагрузки: ' + (result?.error || 'неизвестная ошибка'));
       }
     } catch (error) {
       console.error('[RELOAD] ошибка:', error);

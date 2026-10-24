@@ -3,6 +3,7 @@ import fs from 'fs'
 import pdfParse from 'pdf-parse'
 import * as xlsx from 'xlsx'
 import mammoth from 'mammoth'
+import AdmZip from 'adm-zip'
 import { performOCR } from './ocr.js'
 
 // ============================================================
@@ -74,8 +75,44 @@ export async function parseFileContent(filePath) {
       text = allText || '[Файл Excel не содержит данных]';
     }
 
+    // 🔥 ZIP-АРХИВ
+    else if (ext === '.zip') {
+      try {
+        const zip = new AdmZip(filePath);
+        const entries = zip.getEntries();
+        const textExts = ['.txt', '.js', '.jsx', '.ts', '.tsx', '.py', '.json', '.html', '.css', '.xml', '.md', '.yml', '.yaml', '.csv', '.sql', '.log', '.sh', '.c', '.cpp', '.h', '.java', '.go', '.rs', '.rb', '.php', '.vue', '.svelte', '.ini', '.cfg', '.conf', '.toml'];
+        let archiveText = `--- Архив: ${path.basename(filePath)} (${entries.length} файлов) ---\n`;
+        let textCount = 0;
+        const maxEntries = 20;
+
+        for (const entry of entries) {
+          if (entry.isDirectory) continue;
+          if (textCount >= maxEntries) break;
+          const name = entry.entryName;
+          const eext = path.extname(name).toLowerCase();
+          if (textExts.includes(eext) || eext === '') {
+            try {
+              const entryText = entry.getData().toString('utf-8');
+              archiveText += `\n--- ${name} ---\n${entryText}\n`;
+              textCount++;
+            } catch {
+              archiveText += `\n--- ${name} ---\n[бинарный файл]\n`;
+              textCount++;
+            }
+          }
+        }
+
+        if (textCount === 0) {
+          archiveText += '\n[Архив содержит только бинарные файлы или файлы без текста]\n';
+        }
+        text = archiveText;
+      } catch (err) {
+        text = `[Ошибка чтения архива: ${err.message}]`;
+      }
+    }
+
     // 🔥 ТЕКСТОВЫЕ ФАЙЛЫ И КОД
-    else if (['.txt', '.js', '.py', '.json', '.html', '.css', '.xml', '.md', '.yml', '.yaml', '.toml', '.ini', '.cfg', '.conf', '.sh', '.bash', '.c', '.cpp', '.h', '.hpp', '.java', '.go', '.rs', '.rb', '.php', '.ts', '.tsx', '.jsx', '.vue', '.svelte'].includes(ext)) {
+    else if (['.txt', '.js', '.py', '.json', '.html', '.css', '.xml', '.md', '.yml', '.yaml', '.toml', '.ini', '.cfg', '.conf', '.sh', '.bash', '.c', '.cpp', '.h', '.hpp', '.java', '.go', '.rs', '.rb', '.php', '.ts', '.tsx', '.jsx', '.vue', '.svelte', '.sql', '.log'].includes(ext)) {
       text = fs.readFileSync(filePath, 'utf-8');
     }
 

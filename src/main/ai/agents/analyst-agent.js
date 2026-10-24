@@ -3,9 +3,7 @@
 // ============================================================
 
 import { BaseAgent } from './base-agent.js'
-import { generateChatResponse } from '../generator.js'
-import { exportTableToExcel } from '../export-excel.js'
-import { parseAIResponse } from '../code-generator.js'
+import { generateRawResponse } from '../generator.js'
 
 export class AnalystAgent extends BaseAgent {
   constructor(config = {}) {
@@ -51,10 +49,19 @@ export class AnalystAgent extends BaseAgent {
     Если данных нет — создай примерные (моковые) данные.
     `
 
-    const response = await generateChatResponse(prompt, [], 'System', 'Spark', 'analyst', [], false)
+    const response = await generateRawResponse(prompt, [], 'System', 'Prismi', 'analyst', [], false)
     try {
-      return JSON.parse(response)
+      const parsed = JSON.parse(response)
+      if (Array.isArray(parsed)) return parsed
+      throw new Error('not array')
     } catch {
+      const match = response.match(/\[[\s\S]*\]/)
+      if (match) {
+        try {
+          const arr = JSON.parse(match[0])
+          if (Array.isArray(arr)) return arr
+        } catch {}
+      }
       // Фолбэк — моковые данные
       return [
         { категория: 'Категория 1', показатель: 100 },

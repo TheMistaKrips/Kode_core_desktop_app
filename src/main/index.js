@@ -1,3 +1,7 @@
+process.on('exit', (code) => {
+  require('fs').writeFileSync('crash.log', `exit code: ${code}\n`)
+})
+
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -50,6 +54,29 @@ import {
 } from './ai/index.js'
 
 // ============================================================
+// ОТКЛЮЧАЕМ АППАРАТНОЕ УСКОРЕНИЕ (фикс нативного краша на Windows)
+// Важно: НЕ влияет на инференс модели (node-llama-cpp использует свой GPU-бэкенд).
+// ============================================================
+
+app.disableHardwareAcceleration()
+console.log('[STARTUP] main модуль загружен, HW-ускорение отключено')
+
+// ============================================================
+// ГЛОБАЛЬНАЯ ОБРАБОТКА ОШИБОК (диагностика)
+// ============================================================
+
+process.on('uncaughtException', (error) => {
+  console.error('[FATAL] Необработанная ошибка:', error)
+  try {
+    dialog.showErrorBox('Prismi: ошибка', error?.stack || String(error))
+  } catch {}
+})
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Необработанный Promise:', reason)
+})
+
+// ============================================================
 // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
 // ============================================================
 
@@ -64,9 +91,9 @@ function createWindow() {
     width: 1400,
     height: 900,
     show: false,
-    title: 'Spark',
+    title: 'Prismi',
     frame: false,
-    transparent: true,
+    transparent: false,
     resizable: true, 
     icon: icon,
     webPreferences: {
@@ -101,10 +128,10 @@ function createWindow() {
 // ============================================================
 
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.spark.app')
+  electronApp.setAppUserModelId('com.prismi.app')
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
 
-  console.log('Запуск Spark AI...')
+  console.log('Запуск Prismi AI...')
   
   loadChats()
   loadAgents()
@@ -116,7 +143,7 @@ app.whenReady().then(async () => {
     preloadModel('3b').catch((err) => {
       console.error('[BACKGROUND] ошибка предзагрузки:', err)
     })
-  }, 2000)
+  }, 500)
 
   // ============================================================
   // IPC: СИСТЕМНАЯ СТАТИСТИКА
@@ -189,6 +216,16 @@ app.whenReady().then(async () => {
       return { success: true, message: 'Модель перезагружена' }
     } catch (error) {
       console.error('[RELOAD] ошибка:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('preload-model', async (_, modelType = '3b') => {
+    try {
+      await preloadModel(modelType)
+      return { success: true, message: 'Модель загружена' }
+    } catch (error) {
+      console.error('[PRELOAD] ошибка:', error)
       return { success: false, error: error.message }
     }
   })
@@ -292,32 +329,25 @@ app.whenReady().then(async () => {
         }
       )
       
-      let parsed
-      try {
-        parsed = JSON.parse(response)
-      } catch {
-        parsed = { text: response, files: [], tableData: null, webResults: [] }
-      }
-      
       addMessageToSession(
         chatId, 
         'ai', 
-        parsed.text, 
-        parsed.files || [], 
-        parsed.tableData || null, 
-        parsed.webResults || []
+        response.text, 
+        response.files || [], 
+        response.tableData || null, 
+        response.webResults || []
       )
       
       return response
     } catch (error) {
       if (error.name === 'AbortError' || error.message?.includes('abort')) {
-        return JSON.stringify({ 
+        return { 
           text: 'Пользователь отменил генерацию', 
           files: [], 
           tableData: null, 
           webResults: [], 
           cancelled: true 
-        })
+        }
       }
       throw error
     }
@@ -475,11 +505,19 @@ app.whenReady().then(async () => {
     app.exit(0) 
   })
 
-  createWindow()
+  try {
+    createWindow()
+  } catch (error) {
+    console.error('[FATAL] Ошибка создания окна:', error)
+    try { dialog.showErrorBox('Prismi: ошибка окна', error?.stack || String(error)) } catch {}
+  }
   
   app.on('activate', function () { 
     if (BrowserWindow.getAllWindows().length === 0) createWindow() 
   })
+}).catch((error) => {
+  console.error('[FATAL] Ошибка запуска приложения:', error)
+  try { dialog.showErrorBox('Prismi: ошибка запуска', error?.stack || String(error)) } catch {}
 })
 
 app.on('window-all-closed', () => { 

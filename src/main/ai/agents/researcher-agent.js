@@ -4,7 +4,7 @@
 
 import { BaseAgent } from './base-agent.js'
 import { webSearch } from '../web-search.js'
-import { generateChatResponse } from '../generator.js'
+import { generateRawResponse } from '../generator.js'
 
 export class ResearcherAgent extends BaseAgent {
   constructor(config = {}) {
@@ -48,8 +48,15 @@ export class ResearcherAgent extends BaseAgent {
 
     Задача: "${task}"
     `
-    const response = await generateChatResponse(prompt, [], 'System', 'Spark', 'researcher', [], false)
-    return response.trim().split(',').slice(0, 5).join(' ').trim()
+    const response = await generateRawResponse(prompt, [], 'System', 'Prismi', 'researcher', [], false)
+    return response
+      .replace(/[`"']/g, '')
+      .trim()
+      .split(',')
+      .map((k) => k.trim())
+      .filter(Boolean)
+      .slice(0, 5)
+      .join(' ')
   }
 
   async _analyzeResults(results, task) {
@@ -67,7 +74,7 @@ export class ResearcherAgent extends BaseAgent {
     Верни краткий отчёт (до 500 слов).
     `
 
-    const response = await generateChatResponse(prompt, [], 'System', 'Spark', 'researcher', [], false)
+    const response = await generateRawResponse(prompt, [], 'System', 'Prismi', 'researcher', [], false)
     return response
   }
 }

@@ -27,6 +27,64 @@ const voiceAudio = new Audio(voiceSoundFile);
 voiceAudio.volume = 0.6;
 
 // ============================================================
+// ХЕЛПЕРЫ ФАЙЛОВ
+// ============================================================
+
+const formatBytes = (bytes) => {
+  if (!bytes || bytes <= 0) return '';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+const fileExtLabel = (name) => {
+  if (!name) return 'FILE';
+  const parts = name.split('.');
+  const ext = parts.length > 1 ? parts.pop() : '';
+  return ext ? ext.toUpperCase() : 'FILE';
+};
+
+const AttachmentBar = ({ files, onRemove }) => {
+  if (!files || files.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2 justify-center">
+      {files.map((file, i) => (
+        <div
+          key={i}
+          className="flex items-center gap-2 bg-[var(--color-white)] border border-black/10 pl-1.5 pr-1.5 py-1.5 shadow-sm rounded-full"
+        >
+          <div className="w-7 h-7 rounded-full bg-[var(--color-black)] text-[var(--color-white)] text-[9px] font-bold flex items-center justify-center shrink-0">
+            {fileExtLabel(file.name)}
+          </div>
+          <div className="flex flex-col leading-tight">
+            <span className="text-[11px] font-bold text-[var(--color-black)] truncate max-w-[150px]">{file.name}</span>
+            {file.size > 0 && (
+              <span className="text-[9px] text-[var(--color-black)]/50">{formatBytes(file.size)}</span>
+            )}
+          </div>
+          <button
+            onClick={() => onRemove(file)}
+            className="ml-1 w-5 h-5 rounded-full hover:bg-black/10 flex items-center justify-center text-[var(--color-black)]/50 hover:text-[var(--color-black)] text-sm leading-none"
+            title="Удалить"
+          >
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const SUGGESTIONS = [
+  'Сделай таблицу из моих данных',
+  'Напиши лендинг для кофейни',
+  'Проанализируй документ',
+  'Создай сайт-портфолио',
+  'Сравни данные и сделай выводы'
+];
+
+// ============================================================
 // КОМПОНЕНТ: БЛОК КОДА
 // ============================================================
 
@@ -214,6 +272,38 @@ export default function ChatPanel({
   const responseStartTime = useRef(null);
   
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  const [isMentionOpen, setIsMentionOpen] = useState(false);
+  const [mentionPos, setMentionPos] = useState({ top: 0, left: 0 });
+
+  const mentionQuery = (input.match(/@([^\s@]*)$/) || [])[1]?.toLowerCase() || '';
+  const mentionFiles = selectedFiles.filter((f) => f.name.toLowerCase().includes(mentionQuery));
+
+  const updateMentionState = (value) => {
+    const match = value.match(/@([^\s@]*)$/);
+    if (match && selectedFiles.length > 0) {
+      const rect = textareaRef.current?.getBoundingClientRect();
+      if (rect) setMentionPos({ top: rect.top, left: rect.left });
+      setIsMentionOpen(true);
+    } else {
+      setIsMentionOpen(false);
+    }
+  };
+
+  const handleTextareaChange = (e) => {
+    const value = e.target.value;
+    setInput(value);
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 180) + 'px';
+    updateMentionState(value);
+  };
+
+  const handleMentionSelect = (file) => {
+    const newInput = input.replace(/@[^\s@]*$/, `@${file.name} `);
+    setInput(newInput);
+    setIsMentionOpen(false);
+    textareaRef.current?.focus();
+  };
   
   // ============================================================
   // БУРГЕР-МЕНЮ + ЦЕНТРИРОВАННЫЙ ИНПУТ
@@ -266,6 +356,7 @@ export default function ChatPanel({
         if (isKnowledgeOpen) setIsKnowledgeOpen(false);
         if (isSearchOpen) setIsSearchOpen(false);
         if (activeMenuId) setActiveMenuId(null);
+        setIsMentionOpen(false);
       }
       
       if (e.ctrlKey && e.shiftKey && e.key === 'J') {
@@ -307,14 +398,10 @@ export default function ChatPanel({
   useEffect(() => {
     if (window.api && window.api.onChatToken) {
       window.api.onChatToken((data) => {
-        if (data.chatId === currentSessionId) {
+        if (String(data.chatId) === String(currentSessionId)) {
           setStreamingMessage(data.text);
-          
-          if (!isStreaming) {
-            setIsStreaming(true);
-            setIsLoading(false);
-          }
-          
+          setIsStreaming(true);
+          setIsLoading(false);
           setTimeout(() => scrollToBottom(), 10);
         }
       });
@@ -332,41 +419,64 @@ export default function ChatPanel({
   // ============================================================
   
   useEffect(() => {
-    const handleDragOver = (e) => {
+    let dragCounter = 0;
+
+    const handleDragEnter = (e) => {
       e.preventDefault();
+      dragCounter += 1;
       setShowFileDropZone(true);
     };
-    
+
+    const handleDragOver = (e) => {
+      e.preventDefault();
+    };
+
     const handleDragLeave = (e) => {
       e.preventDefault();
-      setShowFileDropZone(false);
+      dragCounter -= 1;
+      if (dragCounter <= 0) {
+        dragCounter = 0;
+        setShowFileDropZone(false);
+      }
     };
-    
-    const handleDrop = async (e) => {
+
+    const handleDrop = (e) => {
       e.preventDefault();
+      dragCounter = 0;
       setShowFileDropZone(false);
-      
+
       const files = Array.from(e.dataTransfer.files);
-      if (files.length > 0) {
-        const newFiles = files.map(f => ({ 
-          path: f.path, 
-          name: f.name,
-          type: f.type,
-          size: f.size
-        }));
-        setSelectedFiles(prev => {
+      if (files.length === 0) return;
+
+      const newFiles = [];
+      for (const f of files) {
+        let p = '';
+        try {
+          p = window.api && window.api.getPathForFile ? window.api.getPathForFile(f) : (f.path || '');
+        } catch {
+          p = f.path || '';
+        }
+        if (p) {
+          newFiles.push({ path: p, name: f.name, type: f.type, size: f.size });
+        }
+      }
+
+      if (newFiles.length > 0) {
+        setSelectedFiles((prev) => {
           const combined = [...prev, ...newFiles];
-          const unique = Array.from(new Map(combined.map(item => [item.path, item])).values());
+          const unique = Array.from(new Map(combined.map((item) => [item.path, item])).values());
           return unique.slice(0, 10);
         });
       }
     };
-    
+
+    document.addEventListener('dragenter', handleDragEnter);
     document.addEventListener('dragover', handleDragOver);
     document.addEventListener('dragleave', handleDragLeave);
     document.addEventListener('drop', handleDrop);
-    
+
     return () => {
+      document.removeEventListener('dragenter', handleDragEnter);
       document.removeEventListener('dragover', handleDragOver);
       document.removeEventListener('dragleave', handleDragLeave);
       document.removeEventListener('drop', handleDrop);
@@ -717,6 +827,7 @@ export default function ChatPanel({
     if ((!input.trim() && selectedFiles.length === 0) || isLoading) return;
     if (playClick) playClick();
     if (isListening) recognitionRef.current?.stop();
+    setIsMentionOpen(false);
     
     const userText = input.trim();
     
@@ -772,7 +883,7 @@ export default function ChatPanel({
           userName, 
           aiName, 
           currentSessionId, 
-          updatedMessages,
+          currentMessages,
           isWebSearchEnabled
         );
         
@@ -894,7 +1005,47 @@ export default function ChatPanel({
   
   return (
     <div className="w-full h-full flex gap-0 min-h-0 relative">
-      
+
+      {/* 🔥 ДРОП-ЗОНА */}
+      {showFileDropZone && (
+        <div className="absolute inset-0 z-[999] bg-black/60 backdrop-blur-sm flex items-center justify-center pointer-events-none" style={{ borderRadius: 'var(--radius-main)' }}>
+          <div className="px-12 py-9 bg-white/95 border-2 border-dashed border-black/30 rounded-3xl text-center shadow-2xl">
+            <div className="text-[20px] font-bold text-[var(--color-black)]">Перетащите файлы сюда</div>
+            <div className="text-[13px] text-[var(--color-black)]/50 mt-2">PDF · DOCX · XLSX · изображения · код · ZIP-архивы</div>
+          </div>
+        </div>
+      )}
+
+      {/* 🔥 МЕНЮ УПОМИНАНИЯ @ */}
+      {isMentionOpen && mentionFiles.length > 0 && createPortal(
+        <div
+          className="fixed z-[9999] w-[300px] bg-[var(--color-white)] shadow-2xl rounded-2xl overflow-hidden border border-black/10"
+          style={{ top: mentionPos.top, left: mentionPos.left, transform: 'translateY(-100%)' }}
+        >
+          <div className="px-4 py-2 text-[10px] font-bold text-[var(--color-black)]/40 uppercase tracking-widest border-b border-black/5">
+            Прикрепить файл
+          </div>
+          <div className="max-h-60 overflow-y-auto hidden-scroll">
+            {mentionFiles.map((file, i) => (
+              <button
+                key={i}
+                onMouseDown={(e) => { e.preventDefault(); handleMentionSelect(file); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-black/5 text-left"
+              >
+                <div className="w-7 h-7 rounded-full bg-[var(--color-black)] text-[var(--color-white)] text-[9px] font-bold flex items-center justify-center shrink-0">
+                  {fileExtLabel(file.name)}
+                </div>
+                <div className="flex flex-col leading-tight overflow-hidden">
+                  <span className="text-[12px] font-bold text-[var(--color-black)] truncate">{file.name}</span>
+                  {file.size > 0 && <span className="text-[10px] text-[var(--color-black)]/50">{formatBytes(file.size)}</span>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* 🔥 БУРГЕР-МЕНЮ (когда панель скрыта) */}
       {!isChatListOpen && !isFirstMessage && (
         <button
@@ -1116,6 +1267,7 @@ export default function ChatPanel({
           {currentMessages.map((msg, idx) => {
             const isStreamingMsg = msg.isStreaming === true;
             const displayText = isStreamingMsg ? streamingMessage : msg.text;
+            const attachedFiles = msg.contextFiles || msg.files || [];
             
             if (!displayText && !isStreamingMsg) return null;
             
@@ -1138,12 +1290,14 @@ export default function ChatPanel({
                     overflow: 'hidden'
                   }}
                 >
-                  {msg.role === 'user' && msg.contextFiles && msg.contextFiles.length > 0 && (
+                  {msg.role === 'user' && attachedFiles.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-3 pb-3 border-b border-black/5">
-                      {msg.contextFiles.map((f, i) => (
-                        <div key={i} className="flex items-center gap-2 bg-black/5 px-3 py-1.5" style={{ borderRadius: '12px' }}>
-                          <img src={iconFile} alt="File" className="w-3.5 h-3.5 opacity-70" />
-                          <span className="text-[11px] font-bold text-[var(--color-black)] opacity-80">{f.name}</span>
+                      {attachedFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-2 bg-black/5 pl-1.5 pr-2 py-1.5" style={{ borderRadius: '12px' }}>
+                          <div className="w-6 h-6 rounded-full bg-[var(--color-black)] text-[var(--color-white)] text-[8px] font-bold flex items-center justify-center shrink-0">
+                            {fileExtLabel(f.name)}
+                          </div>
+                          <span className="text-[11px] font-bold text-[var(--color-black)] opacity-90 truncate max-w-[150px]">{f.name}</span>
                         </div>
                       ))}
                     </div>
@@ -1241,6 +1395,24 @@ export default function ChatPanel({
               </motion.div>
             );
           })}
+
+          {isStreaming && streamingMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col gap-2 max-w-[85%] shrink-0 self-start"
+            >
+              <div
+                className="px-6 py-4 bg-[var(--color-white)] text-[var(--color-black)] text-[12px] shadow-sm break-words"
+                style={{ borderRadius: 'var(--radius-main)', borderBottomLeftRadius: '12px', wordWrap: 'break-word', overflowWrap: 'break-word' }}
+              >
+                <div className="whitespace-pre-wrap leading-relaxed break-words">
+                  {streamingMessage}
+                  <span className="inline-block w-1 h-3 bg-[var(--color-black)] animate-pulse ml-0.5"></span>
+                </div>
+              </div>
+            </motion.div>
+          )}
           
           {isLoading && !isStreaming && (
             <div className="self-start px-6 py-4 bg-[var(--color-white)] text-[var(--color-black)] text-[12px] shadow-sm shrink-0" style={{ borderRadius: 'var(--radius-main)', borderBottomLeftRadius: '12px' }}>
@@ -1250,7 +1422,7 @@ export default function ChatPanel({
                   <span className="dot"></span>
                   <span className="dot"></span>
                 </div>
-                <span className="text-[11px] text-[var(--color-black)]/60">Koda печатает...</span>
+                <span className="text-[11px] text-[var(--color-black)]/60">Prismi печатает...</span>
                 {isGenerating && (
                   <button 
                     onClick={handleAbort}
@@ -1270,13 +1442,23 @@ export default function ChatPanel({
           <div className="w-full max-w-[40%] flex flex-col items-center gap-4">
             {/* Файлы над инпутом (если есть) */}
             {selectedFiles.length > 0 && (
+              <AttachmentBar
+                files={selectedFiles}
+                onRemove={(file) => setSelectedFiles((prev) => prev.filter((f) => f.path !== file.path))}
+              />
+            )}
+
+            {/* 🔥 Подсказки для быстрого старта */}
+            {selectedFiles.length === 0 && (
               <div className="flex flex-wrap gap-2 justify-center">
-                {selectedFiles.map((file, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-[var(--color-input)] px-4 py-2 text-[var(--color-black)] shadow-sm rounded-full">
-                    <img src={iconFile} alt="File" className="w-4 h-4 opacity-80" />
-                    <span className="text-[11px] font-bold truncate max-w-[100px]">{file.name}</span>
-                    <button onClick={() => setSelectedFiles(prev => prev.filter(f => f.path !== file.path))} className="hover:opacity-50 text-lg font-bold leading-none">×</button>
-                  </div>
+                {SUGGESTIONS.map((s, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setInput(s); textareaRef.current?.focus(); }}
+                    className="px-4 py-2 bg-white/10 text-[var(--color-white)] text-[12px] rounded-full hover:bg-white/20 transition-colors border border-white/10"
+                  >
+                    {s}
+                  </button>
                 ))}
               </div>
             )}
@@ -1325,11 +1507,7 @@ export default function ChatPanel({
               <textarea
                 ref={textareaRef}
                 value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  e.target.style.height = 'auto';
-                  e.target.style.height = Math.min(e.target.scrollHeight, 180) + 'px';
-                }}
+                onChange={handleTextareaChange}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -1337,7 +1515,7 @@ export default function ChatPanel({
                   }
                 }}
                 disabled={isLoading || isListening}
-                placeholder={isListening ? 'Listening...' : 'Ask Koda anything...'}
+                placeholder={isListening ? 'Listening...' : 'Ask Prismi anything...'}
                 className="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--color-black)] placeholder:text-[var(--color-black)]/60 px-2 min-w-0 resize-none overflow-y-auto"
                 style={{ 
                   maxHeight: '180px',
@@ -1373,7 +1551,7 @@ export default function ChatPanel({
             </div>
             
             <span className="text-[10px] text-[var(--color-white)] opacity-40 font-medium text-center">
-              Koda is an AI. It can make mistakes.
+              Prismi is an AI. It can make mistakes.
             </span>
           </div>
         </div>
@@ -1381,6 +1559,12 @@ export default function ChatPanel({
         {/* 🔥 ИНПУТ СНИЗУ (после первого сообщения) */}
         {hasSentFirstMessage && (
           <div className="w-full flex flex-col items-center gap-3 shrink-0 px-6">
+            {selectedFiles.length > 0 && (
+              <AttachmentBar
+                files={selectedFiles}
+                onRemove={(file) => setSelectedFiles((prev) => prev.filter((f) => f.path !== file.path))}
+              />
+            )}
             <div className="w-full bg-[var(--color-input)] flex items-center p-2 shadow-lg overflow-hidden" style={{ borderRadius: 'var(--radius-main)' }}>
               
               <div className="relative shrink-0" ref={attachMenuRef}>
@@ -1425,11 +1609,7 @@ export default function ChatPanel({
               <textarea
                 ref={textareaRef}
                 value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  e.target.style.height = 'auto';
-                  e.target.style.height = Math.min(e.target.scrollHeight, 180) + 'px';
-                }}
+                onChange={handleTextareaChange}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -1437,7 +1617,7 @@ export default function ChatPanel({
                   }
                 }}
                 disabled={isLoading || isListening}
-                placeholder={isListening ? 'Listening...' : 'Ask Koda anything...'}
+                placeholder={isListening ? 'Listening...' : 'Ask Prismi anything...'}
                 className="flex-1 bg-transparent border-none outline-none text-[12px] text-[var(--color-black)] placeholder:text-[var(--color-black)]/60 px-2 min-w-0 resize-none overflow-y-auto"
                 style={{ 
                   maxHeight: '180px',
@@ -1475,7 +1655,7 @@ export default function ChatPanel({
             
             <div className="flex items-center gap-4">
               <span className="text-[10px] text-[var(--color-white)] opacity-40 font-medium text-center">
-                Koda is an AI. It can make mistakes.
+                Prismi is an AI. It can make mistakes.
               </span>
               <span className="text-[10px] text-[var(--color-white)]/20 font-mono">
                 Ctrl+K — поиск • Esc — отмена

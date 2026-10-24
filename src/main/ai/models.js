@@ -40,7 +40,7 @@ export async function initLlama() {
   LlamaChatSessionClass = nodeLlamaCpp.LlamaChatSession;
   
   llama = await getLlama({
-    gpu: "auto",
+    gpu: false, // вместо "auto"
     logLevel: "warn"
   });
   
@@ -200,9 +200,18 @@ export async function loadModel(modelType) {
 export async function unloadModel() {
   if (!isModelLoaded) return;
   console.log(`[MODEL] выгрузка ${currentModelType}...`);
+  const model = loadedModel;
   loadedModel = null;
   currentModelType = null;
   isModelLoaded = false;
+  if (model && typeof model.dispose === 'function') {
+    try {
+      const result = model.dispose();
+      if (result && typeof result.then === 'function') await result;
+    } catch (e) {
+      console.log('[MODEL] ошибка освобождения модели:', e.message);
+    }
+  }
   console.log('[MODEL] модель выгружена (кэш сохранён)');
 }
 

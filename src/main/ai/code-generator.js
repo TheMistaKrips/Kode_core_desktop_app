@@ -8,7 +8,7 @@ import AdmZip from 'adm-zip'
 // ГЕНЕРАЦИЯ СОДЕРЖИМОГО ФАЙЛА
 // ============================================================
 
-export function generateFileContent(fileName, content, format = 'text') {
+export async function generateFileContent(fileName, content, format = 'text') {
   try {
     switch (format.toLowerCase()) {
       // 🔥 EXCEL
@@ -44,12 +44,12 @@ export function generateFileContent(fileName, content, format = 'text') {
             ]
           }]
         });
-        return Packer.toBuffer(doc);
+        return await Packer.toBuffer(doc);
       }
 
       // 🔥 PDF
       case 'pdf': {
-        return generatePDF(content);
+        return await generatePDF(content);
       }
 
       // 🔥 ZIP
@@ -85,18 +85,18 @@ export function generateFileContent(fileName, content, format = 'text') {
 
 async function generatePDF(content) {
   const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([600, 800]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
   const lines = (content || 'Пустой документ').split('\n');
+  let page = pdfDoc.addPage([600, 800]);
   let y = 750;
-  
+
   for (const line of lines) {
     if (y < 50) {
-      const newPage = pdfDoc.addPage([600, 800]);
+      page = pdfDoc.addPage([600, 800]);
       y = 750;
     }
-    
+
     page.drawText(line.substring(0, 80), {
       x: 50,
       y: y,
@@ -106,7 +106,7 @@ async function generatePDF(content) {
     });
     y -= 20;
   }
-  
+
   return await pdfDoc.save();
 }
 
@@ -141,10 +141,37 @@ function parseFilesFromContent(content) {
 }
 
 // ============================================================
+// ИЗВЛЕЧЕНИЕ [FILE:...] БЛОКОВ С УЧЁТОМ ВЛОЖЕННОСТИ
+// ============================================================
+
+function extractFileBlocks(response) {
+  const files = [];
+  const tokenRegex = /\[FILE:([^\]]+)\]|\[\/FILE\]/g;
+  const stack = [];
+  let match;
+
+  while ((match = tokenRegex.exec(response)) !== null) {
+    if (match[0] === '[/FILE]') {
+      if (stack.length === 0) continue;
+      const frame = stack.pop();
+      const content = response.substring(frame.contentStart, match.index).trim();
+      if (frame.name && content) {
+        files.push({ name: frame.name, content });
+      }
+    } else {
+      const name = match[1].trim();
+      stack.push({ name, contentStart: tokenRegex.lastIndex });
+    }
+  }
+
+  return files;
+}
+
+// ============================================================
 // ПАРСИНГ ОТВЕТА AI
 // ============================================================
 
-export function parseAIResponse(response) {
+export async function parseAIResponse(response) {
   const files = [];
   let cleanText = response;
   let tableData = null;
@@ -171,14 +198,10 @@ export function parseAIResponse(response) {
     }
   }
 
-  // 🔥 2. ИЩЕМ ФАЙЛЫ В ФОРМАТЕ [FILE:...] ... [/FILE]
-  const fileRegex = /\[FILE:([^\]]+)\]([\s\S]*?)\[\/FILE\]/g;
-  let match;
+  // 🔥 2. ИЩЕМ ФАЙЛЫ В ФОРМАТЕ [FILE:...] ... [/FILE] (с учётом вложенности)
+  const extractedFiles = extractFileBlocks(response);
 
-  while ((match = fileRegex.exec(response)) !== null) {
-    const fileName = match[1].trim();
-    let content = match[2].trim();
-
+  for (const { name: fileName, content } of extractedFiles) {
     const ext = path.extname(fileName).toLowerCase();
     let fileType = 'text';
     if (['.xlsx', '.xls'].includes(ext)) fileType = 'excel';
@@ -187,7 +210,7 @@ export function parseAIResponse(response) {
     else if (['.zip'].includes(ext)) fileType = 'zip';
 
     try {
-      const buffer = generateFileContent(fileName, content, fileType);
+      const buffer = await generateFileContent(fileName, content, fileType);
       const base64Content = buffer.toString('base64');
 
       files.push({
@@ -196,7 +219,7 @@ export function parseAIResponse(response) {
         type: fileType,
         size: buffer.length
       });
-      
+
       console.log(`[CODE] файл создан: ${fileName} (${buffer.length} байт)`);
     } catch (error) {
       console.error(`[CODE] ошибка генерации ${fileName}:`, error);
@@ -208,12 +231,11 @@ export function parseAIResponse(response) {
         size: buffer.length
       });
     }
-
-    cleanText = cleanText.replace(match[0], '');
   }
 
-  // 🔥 3. УДАЛЯЕМ ОСТАТКИ МАРКЕРОВ
-  cleanText = cleanText.replace(/\[FILE:/g, '');
+  // 🔥 3. УДАЛЯЕМ ФАЙЛОВЫЕ БЛОКИ И ОСТАТКИ МАРКЕРОВ ИЗ ТЕКСТА
+  cleanText = cleanText.replace(/\[FILE:[^\]]*\]([\s\S]*?)\[\/FILE\]/g, '');
+  cleanText = cleanText.replace(/\[FILE:[^\]]*\]/g, '');
   cleanText = cleanText.replace(/\[\/FILE\]/g, '');
   cleanText = cleanText.replace(/\s{3,}/g, ' ').trim();
 

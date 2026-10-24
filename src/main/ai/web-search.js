@@ -37,7 +37,7 @@ export async function webSearch(query) {
   // 🔥 3. ВЫПОЛНЯЕМ ПОИСК
   return new Promise((resolve) => {
     const encodedQuery = encodeURIComponent(query);
-    const url = `https://api.duckduckgo.com/?q=${encodedQuery}&format=json&no_html=1&skip_disambig=1&t=spark_app`;
+    const url = `https://api.duckduckgo.com/?q=${encodedQuery}&format=json&no_html=1&skip_disambig=1&t=prismi_app`;
     
     console.log(`[SEARCH] запрос: "${query}"`);
     

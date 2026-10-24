@@ -3,8 +3,8 @@
 // ============================================================
 
 import { BaseAgent } from './base-agent.js'
-import { generateChatResponse } from '../generator.js'
-import { generateFileContent, parseAIResponse } from '../code-generator.js'
+import { generateRawResponse } from '../generator.js'
+import { parseAIResponse } from '../code-generator.js'
 
 export class CoderAgent extends BaseAgent {
   constructor(config = {}) {
@@ -68,12 +68,12 @@ export class CoderAgent extends BaseAgent {
       `
     }
 
-    const response = await generateChatResponse(prompt, [], 'System', 'Spark', 'coder', [], false)
+    const response = await generateRawResponse(prompt, [], 'System', 'Prismi', 'coder', [], false)
     return response
   }
 
   async _createFiles(code, taskType) {
-    const { files, cleanText } = parseAIResponse(code)
+    const { files } = await parseAIResponse(code)
     
     if (files.length === 0) {
       // Если нет файлов в формате [FILE:...], создаём один текстовый

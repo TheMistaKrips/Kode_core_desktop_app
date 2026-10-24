@@ -26,14 +26,14 @@ logonAudio.volume = 0.5;
 clickAudio.volume = 0.4;
 
 export default function App() {
-  const checkFirstRun = () => !localStorage.getItem('spark_userName');
+  const checkFirstRun = () => !localStorage.getItem('prismi_userName');
   
   const [appState, setAppState] = useState(checkFirstRun() ? 'boot' : 'main'); 
   const [currentView, setCurrentView] = useState('main'); 
   
   const [userName, setUserName] = useState('');
   const [userAge, setUserAge] = useState('');
-  const [aiName, setAiName] = useState('Spark');
+  const [aiName, setAiName] = useState('Prismi');
   
   const [isMuted, setIsMuted] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -47,54 +47,66 @@ export default function App() {
   // 🔥 СОСТОЯНИЕ ЗАГРУЗКИ МОДЕЛИ
   const [isModelLoading, setIsModelLoading] = useState(true);
   const [modelLoadProgress, setModelLoadProgress] = useState(0);
-  const [modelLoadStatus, setModelLoadStatus] = useState('Инициализация...');
+  const [modelLoadStatus, setModelLoadStatus] = useState('Загрузка модели...');
+  const [modelLoadFailed, setModelLoadFailed] = useState(false);
 
   // 🔥 ЭФФЕКТ ДЛЯ ОТСЛЕЖИВАНИЯ ЗАГРУЗКИ МОДЕЛИ
   useEffect(() => {
-    let checkInterval = null;
-    let progressInterval = null;
-    
+    let attempts = 0;
+    const MAX_ATTEMPTS = 240; // ~4 минуты при опросе раз в секунду
+
+    const finishSuccess = () => {
+      setIsModelLoading(false);
+      setModelLoadProgress(100);
+      setModelLoadStatus('Готово');
+      setModelLoadFailed(false);
+    };
+
     const checkModelStatus = async () => {
+      attempts += 1;
       try {
         if (window.api && window.api.isModelReady) {
           const ready = await window.api.isModelReady();
           if (ready) {
-            setIsModelLoading(false);
-            setModelLoadProgress(100);
-            setModelLoadStatus('Готово');
-            if (checkInterval) clearInterval(checkInterval);
-            if (progressInterval) clearInterval(progressInterval);
-            return;
+            finishSuccess();
+            return true;
           }
         }
       } catch (error) {
         console.error('[APP] ошибка проверки модели:', error);
       }
+
+      if (attempts >= MAX_ATTEMPTS) {
+        setModelLoadStatus('Не удалось загрузить модель');
+        setModelLoadFailed(true);
+        return true;
+      }
+      return false;
     };
 
     checkModelStatus();
-    checkInterval = setInterval(checkModelStatus, 1000);
-    
-    progressInterval = setInterval(() => {
-      setModelLoadProgress(prev => {
-        if (prev >= 90) return 90;
-        return Math.min(prev + 2, 90);
-      });
+    const checkInterval = setInterval(async () => {
+      const done = await checkModelStatus();
+      if (done) clearInterval(checkInterval);
+    }, 1000);
+
+    const progressInterval = setInterval(() => {
+      setModelLoadProgress((prev) => (prev >= 90 ? 90 : Math.min(prev + 2, 90)));
     }, 2000);
 
     return () => {
-      if (checkInterval) clearInterval(checkInterval);
-      if (progressInterval) clearInterval(progressInterval);
+      clearInterval(checkInterval);
+      clearInterval(progressInterval);
     };
   }, []);
 
   useEffect(() => {
     if (!checkFirstRun()) {
-      const storedUserName = localStorage.getItem('spark_userName') || 'User';
-      const storedAiName = localStorage.getItem('spark_aiName') || 'Spark';
+      const storedUserName = localStorage.getItem('prismi_userName') || 'User';
+      const storedAiName = localStorage.getItem('prismi_aiName') || 'Prismi';
       setUserName(storedUserName);
       setAiName(storedAiName);
-      setUserAge(localStorage.getItem('spark_userAge') || '');
+      setUserAge(localStorage.getItem('prismi_userAge') || '');
       
       if (chatSessions[0].messages.length === 0) {
         setChatSessions([
@@ -125,13 +137,13 @@ export default function App() {
 
   const saveProfileData = () => {
     const finalUserName = userName.trim() || 'User';
-    const finalAiName = aiName.trim() || 'Spark';
+    const finalAiName = aiName.trim() || 'Prismi';
     
     setUserName(finalUserName);
     setAiName(finalAiName);
-    localStorage.setItem('spark_userName', finalUserName);
-    localStorage.setItem('spark_aiName', finalAiName);
-    if (userAge) localStorage.setItem('spark_userAge', userAge);
+    localStorage.setItem('prismi_userName', finalUserName);
+    localStorage.setItem('prismi_aiName', finalAiName);
+    if (userAge) localStorage.setItem('prismi_userAge', userAge);
   };
 
   const handleCompleteOnboarding = () => {
@@ -139,7 +151,7 @@ export default function App() {
     saveProfileData();
     if (chatSessions[0].messages.length === 0) {
       setChatSessions([
-        { id: 1, title: 'New chat', messages: [{ role: 'ai', text: `Hi, ${userName || 'User'}! I am ${aiName || 'Spark'}. Ready to help.` }] }
+        { id: 1, title: 'New chat', messages: [{ role: 'ai', text: `Hi, ${userName || 'User'}! I am ${aiName || 'Prismi'}. Ready to help.` }] }
       ]);
     }
     setAppState('main');
@@ -214,7 +226,7 @@ export default function App() {
                 <input type="number" value={userAge} onChange={(e) => setUserAge(e.target.value)} placeholder="Age (optional)"
                   className="w-full bg-[var(--color-input)] text-[var(--color-black)] px-6 py-4 text-default focus:outline-none transition-all placeholder:text-[var(--color-black)]/50" style={{ borderRadius: 'var(--radius-main)' }} />
                 
-                <input type="text" value={aiName} onChange={(e) => setAiName(e.target.value)} placeholder="AI Name (Spark)"
+                <input type="text" value={aiName} onChange={(e) => setAiName(e.target.value)} placeholder="AI Name (Prismi)"
                   className="w-full bg-[var(--color-input)] text-[var(--color-black)] px-6 py-4 text-default focus:outline-none transition-all placeholder:text-[var(--color-black)]/50" style={{ borderRadius: 'var(--radius-main)' }} />
 
                 <button onClick={handleCompleteOnboarding} className="mt-4 bg-[var(--color-black)] text-[var(--color-white)] px-8 py-4 text-default hover:opacity-80 transition-opacity" style={{ borderRadius: 'var(--radius-main)' }}>
@@ -236,7 +248,7 @@ export default function App() {
                   className="absolute inset-0 z-[150] bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center"
                 >
                   <div className="bg-white rounded-3xl p-10 max-w-md w-full shadow-2xl">
-                    <h3 className="text-large font-bold text-black mb-2 text-center">Загрузка Spark</h3>
+                    <h3 className="text-large font-bold text-black mb-2 text-center">Загрузка Prismi</h3>
                     <p className="text-small text-black/60 text-center mb-6">{modelLoadStatus}</p>
                     
                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-4">
@@ -256,6 +268,15 @@ export default function App() {
                       <div className="skeleton h-4 w-2/3 rounded-lg"></div>
                       <div className="skeleton h-4 w-3/4 rounded-lg"></div>
                     </div>
+
+                    {modelLoadFailed && (
+                      <button
+                        onClick={() => setIsModelLoading(false)}
+                        className="mt-6 w-full py-3 bg-black text-white text-small font-bold rounded-full hover:opacity-80 transition-opacity"
+                      >
+                        Продолжить без модели
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -325,6 +346,12 @@ export default function App() {
               <div className="absolute top-[200%] left-0 w-full h-full bg-[var(--color-black)]">
                 <div className="absolute inset-0 z-10 pt-24 px-10 pb-10">
                   <AgentsPanel playClick={playClick} />
+                </div>
+                <div className="absolute inset-0 z-20 flex items-center justify-center backdrop-blur-xl bg-white/5">
+                  <div className="text-center px-10 py-8 bg-black/50 rounded-3xl shadow-2xl">
+                    <h2 className="text-[32px] font-bold text-white tracking-wide">In development</h2>
+                    <p className="text-[14px] text-white/70 mt-3">Coming soon</p>
+                  </div>
                 </div>
               </div>
 

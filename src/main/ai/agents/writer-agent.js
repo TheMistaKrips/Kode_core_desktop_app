@@ -3,7 +3,7 @@
 // ============================================================
 
 import { BaseAgent } from './base-agent.js'
-import { generateChatResponse } from '../generator.js'
+import { generateRawResponse } from '../generator.js'
 
 export class WriterAgent extends BaseAgent {
   constructor(config = {}) {
@@ -82,7 +82,7 @@ export class WriterAgent extends BaseAgent {
         prompt = `Напиши текст на тему: "${task}"`
     }
 
-    const response = await generateChatResponse(prompt, [], 'System', 'Spark', 'writer', [], false)
+    const response = await generateRawResponse(prompt, [], 'System', 'Prismi', 'writer', [], false)
     return response
   }
 }

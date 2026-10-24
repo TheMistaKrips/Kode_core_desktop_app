@@ -1,7 +1,7 @@
 {
-  "name": "koda-core",
+  "name": "prismi",
   "version": "1.0.0",
-  "description": "Koda Core - AI Assistant",
+  "description": "Prismi - AI Assistant",
   "main": "./out/main/index.js",
   "author": "Fetisov German",
   "scripts": {
@@ -44,7 +44,7 @@
     "@tailwindcss/postcss": "^4.3.2",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.5.2",
-    "electron": "^39.2.6",
+    "electron": "^39.8.10",
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",
     "eslint": "^9.39.1",
@@ -57,61 +57,5 @@
     "react-dom": "^19.2.1",
     "tailwindcss": "^4.3.2",
     "vite": "^7.2.6"
-  },
-  "build": {
-    "appId": "com.koda.core",
-    "productName": "Koda Core",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "out/**/*",
-      "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "models",
-        "to": "models",
-        "filter": [
-          "**/*.gguf"
-        ]
-      }
-    ],
-    "win": {
-      "target": [
-        "nsis"
-      ],
-      "icon": "resources/spark.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Koda Core"
-    },
-    "mac": {
-      "target": [
-        "dmg"
-      ],
-      "icon": "resources/spark.icns",
-      "category": "public.app-category.productivity"
-    },
-    "dmg": {
-      "title": "Koda Core",
-      "icon": "resources/spark.icns",
-      "contents": [
-        {
-          "x": 130,
-          "y": 220
-        },
-        {
-          "x": 410,
-          "y": 220,
-          "type": "link",
-          "path": "/Applications"
-        }
-      ]
-    }
   }
 }
